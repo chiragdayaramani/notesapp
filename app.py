@@ -98,6 +98,9 @@ def delete():
         return render_template(url_for('index')) 
 
 
+@app.route("/thrash")
+def thrash():
+    pass
 
 
 @app.route("/error/<code>")
