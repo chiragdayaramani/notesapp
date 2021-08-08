@@ -87,7 +87,9 @@ def delete(id):
     sql = f"update notes set deleted_at =now() where id=:id"
     db.session.execute(sql, {"id": id})
     db.session.commit()
-    return render_template(url_for('index'))
+    return render_template(url_for('index')) 
+
+    
 
 
 @app.route("/error/<code>")
