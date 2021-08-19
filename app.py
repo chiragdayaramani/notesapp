@@ -7,12 +7,39 @@ db_pass = ""
 db_name = "my_notes"
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = "mysql://{}:{}@localhost/{}".format(
-    db_user, db_pass, db_name)
+app.config['SQLALCHEMY_DATABASE_URI'] = "mysql://{}:{}@localhost/{}".format(db_user, db_pass, db_name)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
 db = SQLAlchemy(app)
+
+class Users(db.Model):
+    id=db.Column(db.Integer(),primary_key=True)
+    username=db.Column(db.String(100),unique=True)
+    password=db.Column(db.String(256))
+    name=db.Column(db.String(100))
+
+    def __init__(self,username,password,name):
+        self.username=username
+        self.password=password
+        self.name=name
+
+    @staticmethod
+    def exists(username)->bool:
+         # "select * from users where username=? limit 1;"
+         user=Users.get_user_by_username(username)
+         return user!=None
+
+    @staticmethod
+    def get_user_by_username(username):
+        return Users.query.filter_by(username=username).first()
+
+
+    def __str__(self) -> str:
+        return f"{self.username}"
+        
+
+
 
 
 @app.route("/")
