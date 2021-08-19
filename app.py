@@ -1,8 +1,12 @@
+from datetime import datetime, timedelta
+from functools import wraps
 from flask import Flask, render_template, request, redirect, sessions
 from flask.helpers import flash, make_response, url_for
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import session
 from werkzeug.wrappers import response
+from werkzeug.security import generate_password_hash, check_password_hash
+import uuid
 
 db_user = "root"
 db_pass = ""
@@ -39,8 +43,92 @@ class Users(db.Model):
 
     def __str__(self) -> str:
         return f"{self.username}"
+
+
+class Token(db.Model):
+
+    EXPIRE_AFTER = timedelta(hours=24)
+
+    id = db.Column(db.Integer(), primary_key=True)
+    token = db.Column(db.String(256), unique=True, nullable=False)
+    expires_At = db.Column(db.DateTime(), nullable=False)
+    user_id = db.Column(db.Integer(), db.ForeignKey("users.id"), nullable=False)
+
+    def __init__(self, user_id, token, expires_at) -> None:
+        super().__init__()
+        self.user_id = user_id
+        self.token = token
+        self.expires_At = expires_at
+    
+    @staticmethod
+    def create_token(user_id):
+
+        token = Token(user_id, uuid.uuid4(), datetime.now() + timedelta(minutes=30))
+        db.session.add(token)
+        db.session.commit()
+
+        return token.token
+
+    @staticmethod
+    def is_valid(token):
+
+        token_db = Token.query.filter_by(token=token).first()
+        if token_db and token_db.expires_At > datetime.now():
+            return True
+        return False
+    
+    @staticmethod
+    def get_user_id_from_token(token):
+        token_db = Token.query.filter_by(token=token).first()
+        if token_db:
+            return token_db.user_id
+        return None
+
+
+def login_required(func):
+
+    @wraps(func)
+    def wrapper_func(*args, **kwargs):
+        if 'user' in session:
+            return func(*args, **kwargs)
+        if request.cookies.get('token'):
+            token = request.cookies.get('token')
+            if(Token.is_valid(token)):
+                user_id = Token.get_user_id_from_token(token)
+                if(user_id):
+                    session['user'] = user_id
+                    return func(*args, **kwargs)
         
-@app.route
+        flash("Please Login First", "warning")
+        return redirect(url_for('login'))
+    
+    return wrapper_func
+    
+    
+        
+@app.route("/register",methods=['GET','POST'])
+def register():
+    if request.method=='GET':
+        return render_template(url_for('register.html'))
+    elif request.method=='POST':
+        form=request.form
+        name=form.get('name',None)
+        username=form.get('username',None)
+        password=form.get('password',None)
+        if(username and name and password):
+            if(not Users.exists(username=username)):
+                password=generate_password_hash(password)
+                user=Users(username,password,name)
+                db.session.add(user)
+                db.session.commit()
+                flash(f"{username} registered.\n Login to proceed","success")
+                return redirect(url_for('login'))
+            else:
+                flash(f"User with {username} already exists.", "danger")
+                return redirect(url_for("register"))
+        else:
+            flash(f"Please fill all required details", "warning")
+            return redirect(url_for("register"))
 
 
 
@@ -78,8 +166,8 @@ def login():
 def logout():
     response=make_response(redirect(url_for('login')))
     if 'user' in session:
-        user_id=sessioon.pop('user')
-        response.set_cookie('token','',max_age=-)
+        user_id=session.pop('user')
+        response.set_cookie('token','',max_age=-1)
         db.session.execute("delete from token where user_id=:user_id",{"user_id":user_id})
         db.session.commit()
     flash("Logged Out Successfully","success")
