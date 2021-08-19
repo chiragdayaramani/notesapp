@@ -1,12 +1,14 @@
-from datetime import datetime, timedelta
-from functools import wraps
-from flask import Flask, render_template, request, redirect, sessions
-from flask.helpers import flash, make_response, url_for
-from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import session
-from werkzeug.wrappers import response
-from werkzeug.security import generate_password_hash, check_password_hash
+from operator import truediv
 import uuid
+
+from datetime import date, datetime, timedelta
+from functools import wraps
+
+from flask import Flask, render_template, request,  redirect, flash, session, make_response
+from flask.helpers import make_response, url_for
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.wrappers import response
 
 db_user = "root"
 db_pass = ""
@@ -15,7 +17,7 @@ db_name = "my_notes"
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = "mysql://{}:{}@localhost/{}".format(db_user, db_pass, db_name)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
+app.config['SECRET_KEY'] = "50f566bc-b84c-435f-82ef-7bb99162f1a1"
 
 db = SQLAlchemy(app)
 
