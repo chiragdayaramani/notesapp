@@ -1,6 +1,8 @@
-from flask import Flask, render_template, request, redirect
-from flask.helpers import url_for
+from flask import Flask, render_template, request, redirect, sessions
+from flask.helpers import flash, make_response, url_for
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.orm import session
+from werkzeug.wrappers import response
 
 db_user = "root"
 db_pass = ""
@@ -38,11 +40,54 @@ class Users(db.Model):
     def __str__(self) -> str:
         return f"{self.username}"
         
+@app.route
 
 
+
+
+@app.route("/login",methods=['GET','POST'])
+def login():
+    if request.method=='GET':
+        return render_template("login.html")
+    
+    if request.method=='POST':
+        form=request.form
+        username=form.get('username',None)
+        password=form.get('password',None)
+        if(Users.exists(username=username)):
+            user=Users.get_user_by_username(username)
+            if(check_password_hash(user.password,password)):
+                session['user']=user.id
+                flash("You are logged in","success")
+                response=make_response(url_for('index'))
+                if(form.get('remember_me',None)):
+                    token=Token.create_token(user.id)
+                    response.set_cookie('token',token,max_age=60*30)
+                return response
+            else:
+                flash("Incorrect password","info")
+                return redirect(url_for('login'))
+        else:
+            flash("Incorrect user credentials","info")
+            return redirect(url_for('login'))
+
+
+        
+@app.route("/logout")
+@login_required
+def logout():
+    response=make_response(redirect(url_for('login')))
+    if 'user' in session:
+        user_id=sessioon.pop('user')
+        response.set_cookie('token','',max_age=-)
+        db.session.execute("delete from token where user_id=:user_id",{"user_id":user_id})
+        db.session.commit()
+    flash("Logged Out Successfully","success")
+    return response
 
 
 @app.route("/")
+@login_required
 def index():
     notes_sql = "Select * from notes where deleted_at is null"
     notes = db.session.execute(notes_sql)
@@ -53,6 +98,7 @@ def index():
 
 
 @app.route("/create", methods=['GET', 'POST'])
+@login_required
 def create():
     if request.method == 'GET':
         folders_sql = "Select * from folder"
@@ -77,6 +123,7 @@ def create():
 
 
 @app.route("/update/<int:id>", methods=['GET', 'POST'])
+@login_required
 def update(id):
 
     if request.method == 'GET':
@@ -110,6 +157,7 @@ def update(id):
 
 
 @app.route("/delete",methods=['POST'])
+@login_required
 def delete():
 
     if request.method=='POST':
